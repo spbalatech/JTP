@@ -1,0 +1,70 @@
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.regex.*;
+
+public class DependencyAnalyzer {
+
+    private static final String JAVA_EXTENSION = ".java";
+    private static final String DOT_FILE = "dependencies.dot";
+
+    // Map to store class dependencies
+    private static Map<String, Set<String>> classDependencies = new HashMap<>();
+
+    public static void main(String[] args) throws IOException {
+        // Set the root directory of your project
+        Path projectRoot = Paths.get("C:\\Users\\yespe\\Documents\\workspace\\spring-boot-3-rest-api-example-master");
+
+        // Find and analyze all Java files in the project directory
+        List<Path> javaFiles = findJavaFiles(projectRoot);
+        for (Path javaFile : javaFiles) {
+            analyzeJavaFile(javaFile);
+        }
+
+        // Export the results to a DOT file
+        exportToDotFile(DOT_FILE);
+        System.out.println("Dependency analysis completed. Results exported to: " + DOT_FILE);
+    }
+
+    // Method to find all Java files in the directory
+    private static List<Path> findJavaFiles(Path root) throws IOException {
+        List<Path> javaFiles = new ArrayList<>();
+        Files.walk(root).filter(p -> p.toString().endsWith(JAVA_EXTENSION)).forEach(javaFiles::add);
+        return javaFiles;
+    }
+
+    // Method to analyze a single Java file and extract import dependencies
+    private static void analyzeJavaFile(Path javaFile) throws IOException {
+        List<String> lines = Files.readAllLines(javaFile);
+
+        // Extract class name from the file path
+        String className = javaFile.getFileName().toString().replace(JAVA_EXTENSION, "");
+        classDependencies.putIfAbsent(className, new HashSet<>());
+
+        // Regular expression to match import statements
+        Pattern importPattern = Pattern.compile("^import\\s+([\\w\\.]+);");
+
+        for (String line : lines) {
+            Matcher matcher = importPattern.matcher(line.trim());
+            if (matcher.find()) {
+                String importedClass = matcher.group(1);
+                classDependencies.get(className).add(importedClass);
+            }
+        }
+    }
+
+    // Method to export the class dependencies to a DOT file
+    private static void exportToDotFile(String fileName) throws IOException {
+        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(fileName))) {
+            writer.write("digraph ClassDependencies {\n");
+
+            for (String className : classDependencies.keySet()) {
+                for (String dependency : classDependencies.get(className)) {
+                    writer.write("  \"" + className + "\" -> \"" + dependency + "\";\n");
+                }
+            }
+
+            writer.write("}\n");
+        }
+    }
+}
